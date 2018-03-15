@@ -3,7 +3,7 @@
 
 This tool retrieves the (highest) available TLS version on the given destination.
 
-This program is a part of the Architecture Tester (archtester) collection of tools. See https://github.com/jariarkko/archtester and https://github.com/jariarkko/tlsver. The tool has been written by Jari Arkko as a private project.
+This program is a part of the Architecture Tester (archtester) collection of tools. See https://github.com/jariarkko/archtester and https://github.com/jariarkko/tlsver. The tool has been written by Jari Arkko at Ericsson Research.
 
 # Installation
 
