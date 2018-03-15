@@ -26,4 +26,6 @@ wc:
 	wc -l $(SOURCES)
 
 clean:
+	-rm tlsver.o
+	-rm tlsver
 	-rm *~
