@@ -523,15 +523,15 @@ static struct tlsver_numstring tlsver_extensions[] = {
 //   they would otherwise be incompatible.
 //
 
-#define TLSVER_TLS_HELLO_LEGACY_VERSION_10		     0x0301
-#define TLSVER_TLS_HELLO_LEGACY_VERSION_11		     0x0302
-#define TLSVER_TLS_HELLO_LEGACY_VERSION_12		     0x0303
-#define TLSVER_TLS_HELLO_TLS_VERSION_13		     0x0304
-#define TLSVER_TLS_HELLO_TLS_VERSION_13_IS_DRAFT(v)	     (((v)&0xff00) == 0x7f00)
-#define TLSVER_TLS_HELLO_TLS_VERSION_13_DRAFT_VER(v)     (((v)&0x00ff))
-#define TLSVER_TLS_HELLO_TLS_VERSION_IS_VALID(v)	     (((v)>>8) >= 0x03 && ((v)&0xFF) >= 0x01)
-#define TLSVER_TLS_HELLO_TLS_VERSION_MAJOR(v)	     (((v)>>8) - 2)
-#define TLSVER_TLS_HELLO_TLS_VERSION_MINOR(v)	     (((v)&0xFF) - 1)
+#define TLSVER_TLS_HELLO_LEGACY_VERSION_10			0x0301
+#define TLSVER_TLS_HELLO_LEGACY_VERSION_11			0x0302
+#define TLSVER_TLS_HELLO_LEGACY_VERSION_12			0x0303
+#define TLSVER_TLS_HELLO_TLS_VERSION_13				0x0304
+#define TLSVER_TLS_HELLO_TLS_VERSION_13_IS_DRAFT(v)		(((v)&0xff00) == 0x7f00)
+#define TLSVER_TLS_HELLO_TLS_VERSION_13_DRAFT_VER(v)		(((v)&0x00ff))
+#define TLSVER_TLS_HELLO_TLS_VERSION_IS_VALID(v)		(((v)>>8) >= 0x03 && ((v)&0xFF) >= 0x01)
+#define TLSVER_TLS_HELLO_TLS_VERSION_MAJOR(v)			((((v)>>8) == 0x7F) ? 1 : (((v)>>8) - 2))
+#define TLSVER_TLS_HELLO_TLS_VERSION_MINOR(v)			((((v)>>8) == 0x7F) ? 3 : (((v)&0xFF) - 1))
 
 //
 // TLS alerts, taken from IANA TLS registry
@@ -580,9 +580,10 @@ static struct tlsver_numstring tlsver_alerts[] = {
 // Capacity, size, etc. definitions -----------------------------------------------------
 //
 
-#define TLSVER_MAXMSGSIZE		5000
-#define TLSVER_MAXWAIT_USECS	(5 * 1000 * 1000)
-#define TLSVER_MAXWAIT_CONNECT_SECS	5
+#define TLSVER_MAX_TEST_DESTINATIONS			 100
+#define TLSVER_MAXMSGSIZE				5000
+#define TLSVER_MAXWAIT_USECS		   (5 * 1000 * 1000)
+#define TLSVER_MAXWAIT_CONNECT_SECS			   5
 
 //
 // Some helper macros -------------------------------------------------------------------
@@ -611,7 +612,11 @@ static struct tlsver_numstring tlsver_alerts[] = {
 // Configuration parameters and their defaults --------------------------------------------
 //
 
-const char* testDestination = "www.google.com";
+unsigned int nTestDestinations = 1;
+char* testDestinations[TLSVER_MAX_TEST_DESTINATIONS] = {
+  "www.google.com"
+};
+
 unsigned int port = 443;
 int debug = 0;
 int quiet = 0;
@@ -2149,7 +2154,7 @@ connect_withtimeout(int sock,
 // Run the actual probing
 //
 
-static const char*
+static unsigned short
 tlsver_runtest(const char* destination) {
   
   int sock;
@@ -2248,7 +2253,7 @@ tlsver_runtest(const char* destination) {
   // Return with knowledge of what version this was
   //
   
-  return(tlsver_versiontostring(tlsver_getversion()));
+  return(tlsver_getversion());
 }
 
 //
@@ -2269,7 +2274,8 @@ int
 main(int argc,
      char** argv) {
 
-  const char* result;
+  const char* resultstring;
+  unsigned short result;
   
   //
   // Process arguments
@@ -2324,13 +2330,22 @@ main(int argc,
       
       fatalf("unrecognised option %s", argv[0]);
       
-    } else if (argc > 1) {
+    } else if (argc >= 1) {
+
+      unsigned int j;
       
-      fatalf("too many arguments");
+      if (argc > TLSVER_MAX_TEST_DESTINATIONS) {
+	fatalf("too many test destinations, max %u allowed",
+	       TLSVER_MAX_TEST_DESTINATIONS);
+      }
       
-    } else {
+      nTestDestinations = argc;
       
-      testDestination = argv[0];
+      for (j = 0; j < argc; j++) {
+	testDestinations[j] = argv[j];
+      }
+      
+      argc = 0;
       
     }
     
@@ -2339,11 +2354,46 @@ main(int argc,
   }
   
   signal(SIGINT, tlsver_interrupt);
+
+  if (nTestDestinations == 1) {
+    
+    tlsver_getcurrenttime(&startTime);
+    result = tlsver_runtest(testDestinations[0]);
+    resultstring = tlsver_versiontostring(result);
+    
+  } else {
+    
+    unsigned int k;
+    double versionsum = 0.0;
+    int failure = 0;
+    
+    for (k = 0; k < nTestDestinations; k++) {
+      
+      draft = 0;
+      tlsver_getcurrenttime(&startTime);
+      version_record = version_hello = version_supported = 0;
+      result = tlsver_runtest(testDestinations[k]);
+      if (result == 0) {
+	failure = 1;
+	break;
+      }
+      
+      versionsum +=
+	TLSVER_TLS_HELLO_TLS_VERSION_MAJOR(result) * 100.0 +
+	TLSVER_TLS_HELLO_TLS_VERSION_MINOR(result) * 10;
+      
+    }
+    
+    if (failure) {
+      resultstring = 0;
+    } else {
+      static char buf[30];
+      sprintf(buf,"%.2f", (versionsum / nTestDestinations) / 100.0);
+      resultstring = buf;
+    }
+  }
   
-  tlsver_getcurrenttime(&startTime);
-  
-  result = tlsver_runtest(testDestination);
-  tlsver_report(result);
+  tlsver_report(resultstring);
   
   //
   // Done
