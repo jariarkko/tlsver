@@ -581,7 +581,7 @@ static struct tlsver_numstring tlsver_alerts[] = {
 //
 
 #define TLSVER_MAX_TEST_DESTINATIONS			 100
-#define TLSVER_MAXMSGSIZE				5000
+#define TLSVER_MAXMSGSIZE			       16384
 #define TLSVER_MAXWAIT_USECS		   (5 * 1000 * 1000)
 #define TLSVER_MAXWAIT_CONNECT_SECS			   5
 
