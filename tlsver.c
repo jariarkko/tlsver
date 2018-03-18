@@ -1451,6 +1451,17 @@ tlsver_addsupportedgroupsextension(unsigned char* buffer,
 }
  
 static void
+tlsver_addkeyshareextension(unsigned char* buffer,
+				      unsigned int bufferLength,
+				      unsigned int* messageLength) {
+
+  addtobuffer_u16(TLSVER_EXTENSION_KEY_SHARE,"key share extension",buffer,bufferLength,messageLength);
+  addtobuffer_u16(2,"key share extension length",buffer,bufferLength,messageLength);
+  addtobuffer_u16(0,"key share list length",buffer,bufferLength,messageLength);
+
+}
+
+static void
 tlsver_addservernameextension(const char* destination,
 					unsigned char* buffer,
 					unsigned int bufferLength,
@@ -1484,6 +1495,7 @@ tlsver_addextensions(const char* destination,
   tlsver_addsupportedversionsextension(buffer,bufferLength,messageLength);
   tlsver_addsignaturealgorithmsextension(buffer,bufferLength,messageLength);
   tlsver_addsupportedgroupsextension(buffer,bufferLength,messageLength);
+  tlsver_addkeyshareextension(buffer,bufferLength,messageLength);
   if (sni) tlsver_addservernameextension(destination,buffer,bufferLength,messageLength);
   
   //
