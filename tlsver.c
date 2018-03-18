@@ -614,7 +614,7 @@ static struct tlsver_numstring tlsver_alerts[] = {
 
 unsigned int nTestDestinations = 1;
 char* testDestinations[TLSVER_MAX_TEST_DESTINATIONS] = {
-  "www.google.com"
+  "www.example.com"
 };
 
 unsigned int port = 443;

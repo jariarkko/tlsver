@@ -20,7 +20,7 @@ The basic usage is
 
     tlsver [options] [destination]
 
-If left unspecified, the destination is www.google.com. The options are:
+If left unspecified, the destination is www.example.com. The options are:
 
     -version
 
