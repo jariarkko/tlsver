@@ -624,6 +624,8 @@ int quiet = 0;
 int draft = 1;
 int sni = 1;
 int compact = 0;
+int detailedReporting = 0;
+unsigned long connectSecs = TLSVER_MAXWAIT_CONNECT_SECS;
 
 //
 // Other Variables --------------------------------------------------------
@@ -2237,10 +2239,10 @@ tlsver_runtest(const char* destination) {
   // Connect to remote server
   //
   
-  timeout.tv_sec = TLSVER_MAXWAIT_CONNECT_SECS;
+  timeout.tv_sec = connectSecs;
   timeout.tv_usec = 0;
   if (connect_withtimeout(sock , (struct sockaddr *)&server , sizeof(server), &timeout) < 0) {
-    fatalf("connect failed");
+    fatalf("connect failed to %s", destination);
   }
   
   //
@@ -2253,7 +2255,7 @@ tlsver_runtest(const char* destination) {
 	   (const char*)sentMessage,
 	   sentMessageSize,
 	   0) < 0) {
-    fatalf("send failed");
+    fatalf("send failed to %s", destination);
   }
 
   do {
@@ -2272,7 +2274,7 @@ tlsver_runtest(const char* destination) {
     tlsver_getcurrenttime(&now);
     diff = timediffinusecs(&now,&startTime);
     if (diff >= TLSVER_MAXWAIT_USECS)
-      fatalf("timed out");
+      fatalf("timed out to %s", destination);
     
     timeout.tv_sec = 0;
     timeout.tv_usec = 50 * 1000;
@@ -2288,7 +2290,7 @@ tlsver_runtest(const char* destination) {
 				    TLSVER_MAXMSGSIZE - currentLength,
 				    MSG_DONTWAIT)) < 0) {
       if (errno == EAGAIN || errno == EWOULDBLOCK) continue;
-      else fatalf("recv failed");
+      else fatalf("recv failed to %s", destination);
     }
 
     currentLength += receivedMessageSize;
@@ -2314,6 +2316,17 @@ static void
 tlsver_report(const char* result) {
   if (result == 0) printf("unknown\n");
   else printf("%s\n", result);
+}
+
+//
+// Report result per individual site
+//
+
+static void
+tlsver_report_detailed(const char* destination,
+		       const char* result) {
+  printf("%s:", destination);
+  tlsver_report(result);
 }
 
 //
@@ -2379,9 +2392,22 @@ main(int argc,
 
       sni = 1;
 
+    } else if (strcmp(argv[0],"-no-detailed-reporting") == 0) {
+      
+      detailedReporting = 0;
+      
+    } else if (strcmp(argv[0],"-detailed-reporting") == 0) {
+      
+      detailedReporting = 1;
+      
     } else if (strcmp(argv[0],"-port") == 0 && argc > 1 && isdigit(argv[1][0])) {
 
       port = atoi(argv[1]);
+      argc--; argv++;
+      
+    } else if (strcmp(argv[0],"-timeout") == 0 && argc > 1 && isdigit(argv[1][0])) {
+
+      connectSecs = atoi(argv[1]);
       argc--; argv++;
       
     } else if (argv[0][0] == '-') {
@@ -2426,11 +2452,16 @@ main(int argc,
     int failure = 0;
     
     for (k = 0; k < nTestDestinations; k++) {
-      
+
+      const char* dest = testDestinations[k];
       draft = 0;
       tlsver_getcurrenttime(&startTime);
       version_record = version_hello = version_supported = 0;
-      result = tlsver_runtest(testDestinations[k]);
+      result = tlsver_runtest(dest);
+      if (detailedReporting) {
+	resultstring = tlsver_versiontostring(result);
+	tlsver_report_detailed(dest,resultstring);
+      }
       if (result == 0) {
 	failure = 1;
 	break;
