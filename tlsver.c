@@ -582,6 +582,7 @@ static struct tlsver_numstring tlsver_alerts[] = {
 
 #define TLSVER_MAX_TEST_DESTINATIONS			 100
 #define TLSVER_MAXMSGSIZE			       16384
+#define TLSVER_MAX_HOSTNAME_LENGTH			 255 // RFC 2181
 #define TLSVER_MAXWAIT_USECS		   (5 * 1000 * 1000)
 #define TLSVER_MAXWAIT_CONNECT_SECS			   5
 
@@ -621,6 +622,7 @@ unsigned int port = 443;
 int debug = 0;
 int quiet = 0;
 int draft = 1;
+int sni = 0;
 int compact = 0;
 
 //
@@ -902,6 +904,21 @@ addtobuffer_u32(unsigned int value,
   buffer[(*messageLength)++] = (unsigned char)((value >> 0) & 0xFF);
   
   debugf("  %s: %08x", what, value);
+}
+
+static void
+addtobuffer_data(const char *data,
+			     unsigned int dataLength,
+			     const char* what,
+			     unsigned char* buffer,
+			     unsigned int bufferLength,
+			     unsigned int* messageLength) {
+
+  if (*messageLength > bufferLength - dataLength) fatalf("out of buffer space");
+  memcpy((void*)(buffer + *messageLength),(const void*)data,dataLength);
+  *messageLength += dataLength;
+  debugf("  %s: %s", what, data);
+
 }
 
 static unsigned int
@@ -1433,12 +1450,31 @@ tlsver_addsupportedgroupsextension(unsigned char* buffer,
   
 }
  
+static void
+tlsver_addservernameextension(const char* destination,
+					unsigned char* buffer,
+					unsigned int bufferLength,
+					unsigned int* messageLength) {
+
+  unsigned short server_name_length = strnlen(destination,TLSVER_MAX_HOSTNAME_LENGTH);
+
+  addtobuffer_u16(TLSVER_EXTENSION_SERVER_NAME,"server name extension",buffer,bufferLength,messageLength);
+  addtobuffer_u16(2 + 1 + 2 + server_name_length,"server name extension length",buffer,bufferLength,messageLength);
+  addtobuffer_u16(1 + 2 + server_name_length,"server name list length",buffer,bufferLength,messageLength);
+  addtobuffer_u8(0,"server name type",buffer,bufferLength,messageLength);
+  addtobuffer_u16(server_name_length,"server name length",buffer,bufferLength,messageLength);
+
+  addtobuffer_data(destination,server_name_length,"server name",buffer,bufferLength,messageLength);
+
+}
+
 //
 // Add extensions to the message
 //
 
 static void
-tlsver_addextensions(unsigned char* buffer,
+tlsver_addextensions(const char* destination,
+				 unsigned char* buffer,
 				 unsigned int bufferLength,
 				 unsigned int* messageLength) {
   
@@ -1448,6 +1484,7 @@ tlsver_addextensions(unsigned char* buffer,
   tlsver_addsupportedversionsextension(buffer,bufferLength,messageLength);
   tlsver_addsignaturealgorithmsextension(buffer,bufferLength,messageLength);
   tlsver_addsupportedgroupsextension(buffer,bufferLength,messageLength);
+  if (sni) tlsver_addservernameextension(destination,buffer,bufferLength,messageLength);
   
   //
   // Now that we are done for the content, go back and put in the appropriate value
@@ -1464,7 +1501,8 @@ tlsver_addextensions(unsigned char* buffer,
 //
 
 static void
-tlsver_makeclienthello(unsigned char* buffer,
+tlsver_makeclienthello(const char* destination,
+				   unsigned char* buffer,
 				   unsigned int bufferLength,
 				   unsigned int* messageLength) {
 
@@ -1584,7 +1622,7 @@ tlsver_makeclienthello(unsigned char* buffer,
   // extensions
   //
   
-  tlsver_addextensions(buffer,bufferLength,messageLength);
+  tlsver_addextensions(destination,buffer,bufferLength,messageLength);
 
   //
   // Now that we are done for all content, go back and put in the appropriate length fields
@@ -1777,7 +1815,7 @@ tlsver_parseextensions(const unsigned char* message,
   }
   
   if (bufferremaining(messageLength,position) > 0) {
-      warnf("remaining bytes after extension -- ignored");
+      debugf("remaining bytes after extension -- ignored");
   }
   
   //
@@ -2197,7 +2235,7 @@ tlsver_runtest(const char* destination) {
   // Communicate with the server
   //
   
-  tlsver_makeclienthello(sentMessage,sizeof(sentMessage),&sentMessageSize);
+  tlsver_makeclienthello(destination,sentMessage,sizeof(sentMessage),&sentMessageSize);
   showbytes("sending",sentMessage,sentMessageSize);
   if (send(sock,
 	   (const char*)sentMessage,
@@ -2321,6 +2359,10 @@ main(int argc,
       
       draft = 0;
       
+    } else if (strcmp(argv[0],"-sni") == 0) {
+
+      sni = 1;
+
     } else if (strcmp(argv[0],"-port") == 0 && argc > 1 && isdigit(argv[1][0])) {
 
       port = atoi(argv[1]);
