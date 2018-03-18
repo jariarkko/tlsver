@@ -582,8 +582,8 @@ static struct tlsver_numstring tlsver_alerts[] = {
 
 #define TLSVER_MAX_TEST_DESTINATIONS			 100
 #define TLSVER_MAXMSGSIZE				5000
-#define TLSVER_MAXWAIT_USECS		   (5 * 1000 * 1000)
-#define TLSVER_MAXWAIT_CONNECT_SECS			   5
+#define TLSVER_MAXWAIT_USECS		   (3 * 1000 * 1000)
+#define TLSVER_MAXWAIT_CONNECT_SECS			   3
 
 //
 // Some helper macros -------------------------------------------------------------------
@@ -2120,10 +2120,10 @@ tlsver_getversion() {
  
 static int
 connect_withtimeout(int sock,
-	                        struct sockaddr* address,
-                          	size_t asize,
-                                struct timeval* timeout) {
-
+		    struct sockaddr* address,
+		    size_t asize,
+		    struct timeval* timeout) {
+  
   fd_set writes;
 
   fcntl(sock, F_SETFL, O_NONBLOCK);
