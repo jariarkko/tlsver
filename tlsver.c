@@ -2477,7 +2477,10 @@ main(int argc,
       resultstring = 0;
     } else {
       static char buf[30];
-      sprintf(buf,"%.2f", (versionsum / nTestDestinations) / 100.0);
+      if (nTestDestinations >= 10)
+	sprintf(buf,"%.4f", (versionsum / nTestDestinations) / 100.0);
+      else
+	sprintf(buf,"%.2f", (versionsum / nTestDestinations) / 100.0);
       resultstring = buf;
     }
   }
