@@ -18,9 +18,11 @@ The easiest installation method is to retrieve the software from GitHub. There i
 
 The basic usage is
 
-    tlsver [options] [destination]
+    tlsver [options] [destinations]
 
-If left unspecified, the destination is www.google.com. The options are:
+If left unspecified, the destination is www.google.com. Multiple destinations are allowed, and then all of them will be looked at and a summary printed.
+
+The options are:
 
     -version
 
@@ -41,6 +43,25 @@ Whether to silently ignore all errors etc, and only output the result. Errors wi
 
 Whether to output information about exact draft version supported or not.
 
+    -compact
+    -no-compact
+
+Whether to use a complete hello message rather than a minimal one. Complete messages are more likely to work with different implementations, but are of course larger. The default is not use compact packets.
+
+    -sni
+    -no-sni
+
+Whether to include a server name extension or not. The default is to include it.
+
     -port p
 
 Set the port to p. The default is 80.
+
+    -timeout s
+
+Set the timeout of contacting to a server to s seconds. The default is 3 s.
+
+    -detailed-reporting
+    -no-detailed-reporting
+
+Control whether there's detailed reporting of progress as the tester goes through different destinations. The default is not to do this.
