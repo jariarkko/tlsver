@@ -583,7 +583,7 @@ static struct tlsver_numstring tlsver_alerts[] = {
 #define TLSVER_MAX_TEST_DESTINATIONS			 100
 #define TLSVER_MAXMSGSIZE			       16384
 #define TLSVER_MAX_HOSTNAME_LENGTH			 255 // RFC 2181
-#define TLSVER_MAXWAIT_USECS		   (3 * 1000 * 1000)
+#define TLSVER_MAXWAIT_USECS		  (10 * 1000 * 1000)
 #define TLSVER_MAXWAIT_CONNECT_SECS			   3
 
 //
@@ -2496,10 +2496,10 @@ main(int argc,
     resultstring = tlsver_versiontostring(result);
     
   } else {
-    
+
+    unsigned int countsubstract = 0;
     unsigned int k;
     double versionsum = 0.0;
-    int failure = 0;
     
     for (k = 0; k < nTestDestinations; k++) {
 
@@ -2513,8 +2513,8 @@ main(int argc,
 	tlsver_report_detailed(dest,resultstring);
       }
       if (result == 0) {
-	failure = 1;
-	break;
+	countsubstract++;
+	continue;
       }
       
       versionsum +=
@@ -2523,14 +2523,14 @@ main(int argc,
       
     }
     
-    if (failure) {
+    if (countsubstract == nTestDestinations) {
       resultstring = 0;
     } else {
       static char buf[30];
       if (nTestDestinations >= 10)
-	sprintf(buf,"%.4f", (versionsum / nTestDestinations) / 100.0);
+	sprintf(buf,"%.4f", (versionsum / (nTestDestinations - countsubstract)) / 100.0);
       else
-	sprintf(buf,"%.2f", (versionsum / nTestDestinations) / 100.0);
+	sprintf(buf,"%.2f", (versionsum / (nTestDestinations - countsubstract)) / 100.0);
       resultstring = buf;
     }
   }
