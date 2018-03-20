@@ -2099,7 +2099,7 @@ tlsver_getcurrenttime(struct timeval* result) {
 
 static void
 getdestinationaddress(const char* destination,
-				  struct sockaddr_in* address) {
+		      struct sockaddr_in* address) {
   
   struct addrinfo hints, *res;
   struct sockaddr_in *addr;
@@ -2119,6 +2119,35 @@ getdestinationaddress(const char* destination,
   }
   
   *address = *(struct sockaddr_in*)res->ai_addr;
+}
+
+//
+// Map a DNS name to an IPv6 address
+//
+
+static int
+getdestinationaddress6(const char* destination,
+		       struct sockaddr_in6* address) {
+  
+  struct addrinfo hints, *res;
+  struct sockaddr_in6 *addr;
+  int rcode;
+  
+  assert(destination != 0);
+  assert(address != 0);
+  
+  memset(&hints,0,sizeof(hints));
+  hints.ai_family = AF_INET6;
+  hints.ai_socktype = SOCK_STREAM;
+  hints.ai_flags = hints.ai_flags | AI_CANONNAME;
+  
+  if ((rcode = getaddrinfo(destination, NULL, &hints, &res)) != 0) {
+    debugf("cannot resolve address %s: %s for IPv6", destination, gai_strerror (rcode));
+    return(0);
+  }
+  
+  *address = *(struct sockaddr_in6*)res->ai_addr;
+  return(1);
 }
 
 //
@@ -2212,6 +2241,7 @@ tlsver_runtest(const char* destination) {
   int sock;
   struct timeval timeout;
   struct sockaddr_in server;
+  struct sockaddr_in6 server6;
   unsigned char sentMessage[TLSVER_MAXMSGSIZE];
   unsigned int sentMessageSize;
   unsigned char receivedMessage[TLSVER_MAXMSGSIZE];
@@ -2223,7 +2253,7 @@ tlsver_runtest(const char* destination) {
   // Create socket
   //
   
-  sock = socket(AF_INET , SOCK_STREAM , 0);
+  sock = socket(AF_INET, SOCK_STREAM, 0);
   if (sock == -1) {
     fatalf("could not create socket");
   }
@@ -2242,7 +2272,27 @@ tlsver_runtest(const char* destination) {
   timeout.tv_sec = connectSecs;
   timeout.tv_usec = 0;
   if (connect_withtimeout(sock , (struct sockaddr *)&server , sizeof(server), &timeout) < 0) {
-    fatalf("connect failed to %s", destination);
+    debugf("connect failed to %s", destination);
+    close(sock);
+    sock = socket(AF_INET6, SOCK_STREAM, 0);
+    if (sock == -1) {
+      fatalf("could not create ipv6 socket");
+    }
+  
+    if (!getdestinationaddress6(destination,&server6)) {
+      debugf("no ipv6 address");
+      return(0);
+    }
+    server6.sin6_port = htons(port);
+    debugf("connecting to IPv6 address of %s:%u",
+	   destination,
+	   port);
+    timeout.tv_sec = connectSecs;
+    timeout.tv_usec = 0;
+    if (connect_withtimeout(sock , (struct sockaddr *)&server6 , sizeof(server6), &timeout) < 0) {
+      debugf("connect failed to %s", destination);
+      return(0);
+    }
   }
   
   //
